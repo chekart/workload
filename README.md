@@ -9,7 +9,7 @@ Usage:
 
 ### Create distributed job
 
-```
+```python
 import redis
 from workload import distributed
 
@@ -25,7 +25,7 @@ def worker(job, country):
 
 ### Add workload to do
 
-```
+```python
 from jobs import worker
 
 worker.distribute(['task1', 'task2'])
@@ -34,7 +34,7 @@ worker.wait_results()
 
 ### Start worker
 
-```
+```python
 from jobs import worker
 
 worker.start_processing(concurrency=10)
