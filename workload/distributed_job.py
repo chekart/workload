@@ -207,7 +207,7 @@ class DistributedJob:
         pipeline.execute()
 
         for chunk in workload:
-            pipeline.sadd(self.__key_workload, *chunk)
+            self.__redis_client.sadd(self.__key_workload, *chunk)
 
     def cancel(self):
         (
