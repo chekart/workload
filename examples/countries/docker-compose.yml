@@ -1,6 +1,21 @@
 version: "3"
 
 services:
+  main:
+    build: .
+    depends_on:
+    - redis
+    - worker
+    environment:
+      WORKLOAD_EXECUTABLE: main.py
+      REDIS_HOST: redis
+  worker:
+    build: .
+    depends_on:
+    - redis
+    environment:
+      WORKLOAD_EXECUTABLE: distributed.py
+      REDIS_HOST: redis
   redis:
     image: redis:latest
     ports:

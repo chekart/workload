@@ -1,6 +1,6 @@
 # Workload
 
-Simple, clean, easy python task distribution
+Simple, clean, light python task distribution.
 No magic, no configuration, no broker abstraction
 
 The library uses Redis as broker

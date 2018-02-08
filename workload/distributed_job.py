@@ -3,7 +3,13 @@ import logging
 import redis
 
 from multiprocessing.pool import ThreadPool
-from .utils import LOG_TRIM, MAX_RETRY_SLEEP, parse_int
+from .utils import (
+    LOG_TRIM,
+    MAX_RETRY_SLEEP,
+    DEFAULT_CHUNK_SIZE,
+    parse_int,
+    chunk_workload,
+)
 
 
 LUA_SPOPMOVE = """
@@ -172,10 +178,15 @@ class DistributedJob:
             'tech_name': self.__name,
         }
 
-    def distribute(self, workload=None):
+    def distribute(self, workload, chunk_len=DEFAULT_CHUNK_SIZE):
         """
         Start distributed job
         """
+        if chunk_len:
+            workload = chunk_workload(workload, size=DEFAULT_CHUNK_SIZE)
+        else:
+            workload = (workload,)
+
         pipeline = self.__redis_client.pipeline()
         (
             pipeline
@@ -189,13 +200,14 @@ class DistributedJob:
                 .set(self.__key_error, 0)
                 .set(self.__key_fanout, 0)
         )
-        if workload:
-            pipeline.sadd(self.__key_workload, *workload)
+        for chunk in workload:
+            pipeline.sadd(self.__key_workload, *chunk)
+            break
 
         pipeline.execute()
 
-    def add_workload(self, workload):
-        self.__redis_client.sadd(self.__key_workload, *workload)
+        for chunk in workload:
+            pipeline.sadd(self.__key_workload, *chunk)
 
     def cancel(self):
         (
