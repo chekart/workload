@@ -21,7 +21,7 @@ def chunk_workload(workload, size):
         chunk.append(item)
         if len(chunk) >= size:
             yield chunk
-        chunk = []
+            chunk = []
 
     if chunk:
         yield chunk

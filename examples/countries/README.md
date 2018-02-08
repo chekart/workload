@@ -6,6 +6,7 @@ and get number of countries (and country names) which use Euro currency.
 You can use docker compose to build and run
 
 ```
+docker-compose build --no-cache
 docker-compose up
 ```
 
