@@ -224,12 +224,30 @@ class DistributedJob:
                 break
             time.sleep(0.001)
 
-    def start_processing(self, concurrency=1, pool_args=()):
+    def start_bulk(self, concurrency=1, pool_args=()):
+        concurrency, pool_args = self._normalize_pool_args(concurrency, pool_args)
+        pool = ThreadPool(processes=concurrency)
+        self._run_forever(task=lambda: pool.map(self.callback, pool_args))
+
+    def start_threaded(self, concurrency=1, pool_args=()):
+        concurrency, pool_args = self._normalize_pool_args(concurrency, pool_args)
+        pool = ThreadPool(processes=concurrency)
+
+        pool.map(
+            lambda args: self.start_single(*args),
+            pool_args
+        )
+
+    def start_single(self, *args):
+        self._run_forever(task=lambda: self.callback(args))
+
+    def _normalize_pool_args(self, concurrency=1, pool_args=()):
         if not pool_args:
             pool_args = [()] * concurrency
         concurrency = len(pool_args)
+        return concurrency, pool_args
 
-        pool = ThreadPool(processes=concurrency)
+    def _run_forever(self, task):
         exception_tries = 0
 
         self.__run = True
@@ -243,7 +261,7 @@ class DistributedJob:
                     self.__redis_client.incr(self.__key_workers)
 
                     while parse_int(self.__redis_client.scard(self.__key_workload)):
-                        pool.map(self.callback, pool_args)
+                        task()
                         time.sleep(0.001)
 
                     self.logger.info('{}: finished processing'.format(self.__name))
