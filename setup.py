@@ -4,11 +4,17 @@ from distutils.core import setup
 if sys.version_info < (3, 0):
     raise NotImplementedError("Sorry only Python 3+ is supported")
 
+
+with open('README.md', 'rt') as f:
+    long_description = f.read()
+
+
 setup(
     name='workload',
     packages=['workload'],
     version='0.1',
-    description='Task distribution',
+    description='A simple task distribution library',
+    long_description=long_description,
     license='MIT',
     author='chekart',
     url='https://github.com/chekart/workload',
