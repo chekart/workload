@@ -3,7 +3,7 @@ import time
 import logging
 import redis
 
-from .utils import LOG_TRIM, MAX_RETRY_SLEEP
+from .utils import LOG_TRIM, MAX_RETRY_SLEEP, parse_int
 
 
 LOG = logging.getLogger('workload.deferred')
@@ -32,8 +32,25 @@ class DeferredJob:
     def name(self):
         return self.__name
 
+    @property
+    def action(self):
+        return self.__callback
+
+    def describe(self):
+        """
+        Get job statistics
+        """
+        return {
+            'queue': parse_int(self.__redis_client.llen(self.__key_queue)),
+            'type': 'deferred',
+            'tech_name': self.__name,
+        }
+
     def defer(self, workload=None):
         self.__redis_client.rpush(self.__key_queue, json.dumps(workload))
+
+    def cancel(self):
+        self.__redis_client.delete(self.__key_queue)
 
     def start_processing(self):
         self.__run = True

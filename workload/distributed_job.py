@@ -122,6 +122,10 @@ class DistributedJob:
         return self.__name
 
     @property
+    def action(self):
+        return self.__callback
+
+    @property
     def results(self):
         yield from self.__redis_client.sscan_iter(self.__key_result)
 
@@ -169,6 +173,7 @@ class DistributedJob:
             end_time = int(time.time())
 
         return {
+            'type': 'distributed',
             'workers': parse_int(self.__redis_client.get(self.__key_workers)),
             'in_progress': in_progress,
             'duration': end_time - start_time,
