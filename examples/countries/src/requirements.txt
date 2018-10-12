@@ -1,0 +1,2 @@
+requests
+-e git+https://github.com/chekart/workload.git@dev#egg=workload

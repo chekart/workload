@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ app_title }}</title>
+    <link rel="stylesheet"
+          href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css"
+          integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+    <script src="https://code.jquery.com/jquery-3.3.1.min.js"
+            integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8="
+            crossorigin="anonymous"></script>
+
+    <style>
+        .footer {
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+            height: 60px;
+            line-height: 60px;
+            background: #f5f5f5;
+        }
+
+        .redis_status {
+            color: white;
+        }
+    </style>
+
+    <script>
+        function escapeHtml(txt) {
+            return $('<div>').text(txt).html();
+        }
+
+        function updateStatus() {
+            $.ajax({
+                url: '{{ url_prefix }}/status',
+                success: function (data) {
+                    $.each(data, function(name, info) {
+                        var js_name = name.replace(/\./g, '-');
+                        var $job = $('.js-job-' + js_name);
+                        if (info['type'] === 'deferred') {
+                            $job.find('.js-queue').text(info['queue']);
+                        } else {
+                            var in_progress = info['in_progress'];
+                            $job.find('.js-workload').text(info['workload']);
+                            $job.find('.js-duration').text(in_progress ? info['duration']: '0');
+                            $job.find('.js-last-duration').text(in_progress? '': info['duration']);
+                            $job.find('.js-workers').text(info['workers']);
+                        }
+                    });
+                }
+            });
+        }
+
+        function updateRedisStatus() {
+            $.ajax({
+                url: '{{ url_prefix }}/rstatus',
+                success: function (data) {
+                    $('.js-rstatus').show();
+                    $('.js-rstatus .js-redis-version').text(data.redis_version);
+                    $('.js-rstatus .js-redis-os').text(data.os);
+                    $('.js-rstatus .js-redis-memory_used').text(data.used_memory);
+                    $('.js-rstatus .js-redis-memory_total').text(data.total_memory);
+                    $('.js-rstatus .js-redis-mem_percent').text(data.used_memory_percent);
+                }
+            });
+        }
+
+        $(function () {
+            updateStatus();
+            setInterval(updateStatus, 5 * 1000);
+
+            // {% if app_show_status %}
+            updateRedisStatus();
+            setInterval(updateRedisStatus, 5 * 1000);
+            // {% endif %}
+
+            $('.js-job').each(function() {
+                var $job = $(this);
+
+                $job.find('.js-action').click(function() {
+                    var $button = $(this);
+                    $.ajax({
+                        url: '{{ url_prefix }}/actions',
+                        type: 'POST',
+                        data: {
+                            action: $button.attr('data-workload-action'),
+                            job: $button.attr('data-workload-job'),
+                        },
+                        success: function() {
+                            updateStatus();
+                        }
+                    });
+                });
+            })
+        })
+    </script>
+</head>
+<body>
+    <header>
+        <div class="navbar navbar-dark bg-dark box-shadow mb-4">
+            <div class="container d-flex justify-content-between">
+                <a href="#" class="navbar-brand d-flex align-items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 20 20" fill="currentColor" stroke="none" stroke-width="0" stroke-linecap="round" stroke-linejoin="round" class="mr-2">
+                        <path fill-rule="evenodd" d="M4.48 7.27c.26.26 1.28 1.33 1.28 1.33l.56-.58-.88-.91 1.69-1.8s-.76-.74-.43-.45c.32-1.19.03-2.51-.87-3.44C4.93.5 3.66.2 2.52.51l1.93 2-.51 1.96-1.89.52-1.93-2C-.19 4.17.1 5.48 1 6.4c.94.98 2.29 1.26 3.48.87zm6.44 1.94l-2.33 2.3 3.84 3.98c.31.33.73.49 1.14.49.41 0 .82-.16 1.14-.49.63-.65.63-1.7 0-2.35l-3.79-3.93zM16 2.53L13.55 0 6.33 7.46l.88.91-4.31 4.46-.99.53-1.39 2.27.35.37 2.2-1.44.51-1.02L7.9 9.08l.88.91L16 2.53z"/>
+                    </svg>
+                    <strong>{{ app_title }}</strong>
+                </a>
+
+                <div class="float-right redis_status js-rstatus" style="display: none">
+                    <small>Redis <span class="js-redis-version"></span> on <span class="js-redis-os"></span></small><br/>
+                    <small>Memory used: <span class="js-redis-memory_used"></span>/<span class="js-redis-memory_total"></span> (<span class="js-redis-mem_percent"></span>%)</small>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main role="main" class="container">
+        <h1 class="h2"><strong>Deferred Tasks</strong></h1>
+        <table class="table table-striped table-bordered table-hover">
+            <thead class="thead-dark">
+                <tr>
+                    <th>Name</th>
+                    <th>Description</th>
+                    <th>Workload</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            {% for job in jobs %}{% if job.type == 'deferred' %}
+                <tr class="js-job js-job-{{ job.name|replace('.', '-') }}" data-job="{{ job.name }}">
+                    <td>
+                        <small>{{ job.label_prefix }}</small>.<p class="h5"><strong>{{ job.label }}</strong></p>
+                    </td>
+                    <td>
+                        <pre>{% if job.description %}{{ job.description|trim }}{% endif %}</pre>
+                    </td>
+                    <td class="text-center align-middle">
+                        <p class="h5 js-queue"></p>
+                    </td>
+                    <td class="text-right align-middle" style="width: 150px">
+                        {% if job.can_start %}
+                        <button type="submit" class="btn btn-success js-action" data-workload-job="{{ job.name }}" data-workload-action="start">Start</button>
+                        {% endif %}
+                        <button type="submit" class="btn btn-danger js-action" data-workload-job="{{ job.name }}" data-workload-action="stop">Stop</button>
+                    </td>
+                </tr>
+            {% endif %}{% endfor %}
+        </table>
+
+        <h1 class="h2"><strong>Distributed Tasks</strong></h1>
+        <table class="table table-striped table-bordered table-hover">
+            <thead class="thead-dark">
+                <tr>
+                    <th>Name</th>
+                    <th>Description</th>
+                    <th>Workload</th>
+                    <th>Duration</th>
+                    <th>Workers</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            {% for job in jobs %}{% if job.type == 'distributed' %}
+                <tr class="js-job js-job-{{ job.name|replace('.', '-') }}" data-job="{{ job.name }}">
+                    <td>
+                        <small>{{ job.label_prefix }}</small>.<p class="h5"><strong>{{ job.label }}</strong></p>
+                    </td>
+                    <td>
+                        <p><pre>{% if job.description %}{{ job.description|trim }}{% endif %}</pre></p>
+                    </td>
+                    <td class="text-center align-middle">
+                        <p class="h5 js-workload"></p>
+                    </td>
+                    <td class="text-center align-middle">
+                        <p class="h5 js-duration"></p>
+                        <small class="js-last-duration"></small>
+                    </td>
+                    <td class="text-center align-middle">
+                        <p class="h5 js-workers"></p>
+                    </td>
+                    <td class="text-right align-middle" style="width: 150px">
+                        {% if job.can_start %}
+                        <button type="submit" class="btn btn-success js-action" data-workload-job="{{ job.name }}" data-workload-action="start">Start</button>
+                        {% endif %}
+                        <button type="submit" class="btn btn-danger js-action" data-workload-job="{{ job.name }}" data-workload-action="stop">Stop</button>
+                    </td>
+                </tr>
+            {% endif %}{% endfor %}
+        </table>
+    </main>
+
+    <footer class="footer">
+        <div class="container text-center">
+            <span class="text-muted"><strong>workload</strong> task distribution library admin</span>
+        </div>
+    </footer>
+</body>
+</html>
